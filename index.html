@@ -1,0 +1,158 @@
+<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+
+<style>
+    .container{
+        margin-top: 40px;
+    }
+
+    #templateContainer > textarea{
+        width: 100%;
+        height: 80%;
+    }
+
+    label{
+        display: block;
+        margin-bottom: 0px;
+    }
+
+    h3{
+        margin-top: 18px;
+    }
+
+    .fixedContainer{
+        position: fixed;
+        top: 0px;
+        left: 0px;
+    }
+	
+	.attachment-full{
+		position: fixed;
+		top: 0px;
+		right: 0px;
+	}
+</style>
+
+<a href="https://github.com/ZeroByter/SteamTemplateReviewGenerator" target="_blank"><img width="149" height="149" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_red_aa0000.png?resize=149%2C149" class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a>
+
+<div id="generatorContainer" class="container">
+    <div class="row">
+        <div class="col-lg-4">
+            <button id="switchToChangeTemplate" class="btn btn-secondary">Change Template</button>
+        </div>
+    </div>
+    <div class="row" id="reviewGeneratorContainer"></div>
+    <br><br>
+    <div class="row">
+        <div class="col-lg-4 offset-lg-4" style="text-align: center;">
+            <button id="copyFinalReviewText" class="btn btn-primary">Copy Review</button>
+        </div>
+    </div>
+    <br><br><br><br><br><br>
+</div>
+
+<div id="changeTemplateContainer" class="container" style="display: none;">
+    <div class="row">
+        <div class="col-lg-4">
+            <button id="switchToGenerator" class="btn btn-secondary">Back</button>
+        </div>
+        <div class="col-lg-4" style="text-align: center;">
+            Changing the template will erase your generator checkboxes!
+        </div>
+    </div>
+    <br><br>
+    <div class="row">
+        <div id="templateContainer" class="col-lg-6 offset-lg-3">
+            <textarea id="templateText"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+var reviewData = {}
+
+function generateForm(){
+    $("#reviewGeneratorContainer").html("")
+	
+	reviewData = {}
+	
+	var template = $("#templateText").val()
+
+    var categories = /---{.+}---(?:(?:\r\n|[\r\n]).+$)*/gm
+    var categoriesArray = template.match(categories)
+
+    var categoryNameRegex = /---{(.+)}---/g
+    var options = /(☐|☑) (.+)/g
+
+    var i = 1
+    categoriesArray.forEach(function(e){
+        var categoryName = Array.from(e.matchAll(categoryNameRegex))[0][1];
+
+        $("#reviewGeneratorContainer").append("<div class=\"col-lg-4\"></div>");
+        var test = $("#reviewGeneratorContainer").children().last()
+        test.append("<h3>" + categoryName + "</h3>")
+		
+		reviewData[categoryName] = {options: {}}
+
+        var optionsMatches = Array.from(e.matchAll(options))
+
+        optionsMatches.forEach(function(e1){
+            test.append("<label><input type='checkbox' class='radio' name='test[" + i + "]' data-name='" + e1[2] + "' /> " + e1[2] + "</label>")
+			reviewData[categoryName].options[e1[2]] = false
+        })
+        i++
+    })
+
+    setupCategoriziedCheckboxes()
+}
+
+function setupCategoriziedCheckboxes(){
+    //taken from https://stackoverflow.com/questions/9709209/html-select-only-one-checkbox-in-a-group but modified a bit
+    $("input:checkbox").on('click', function() {
+        var $box = $(this);
+        if ($box.is(":checked")) {
+            var group = "input:checkbox[name='" + $box.attr("name") + "']";
+            $(group).prop("checked", false);
+            $box.prop("checked", true);
+			
+			var categoryName = $($box.parent().parent().children()[0]).html()
+			setCheckedReviewData(categoryName, $box.attr("data-name"))
+        } else {
+            $box.prop("checked", false);
+        }
+    });
+}
+
+function setCheckedReviewData(categoryName, optionName){
+	Object.keys(reviewData[categoryName].options).forEach(function(e){
+		reviewData[categoryName].options[e] = e == optionName
+	})
+}
+
+//TODO: fix this url
+$.get("https://github.com/ZeroByter/SteamTemplateReviewGenerator", function(html){
+	$("#templateText").val(html)
+	
+	generateForm()
+})
+
+$("#templateText").bind("keyup", function(){
+	generateForm()
+})
+
+$("#switchToChangeTemplate").click(function(){
+    $("#generatorContainer").css("display", "none")
+    $("#changeTemplateContainer").css("display", "block")
+})
+
+$("#switchToGenerator").click(function(){
+    $("#generatorContainer").css("display", "block")
+    $("#changeTemplateContainer").css("display", "none")
+})
+
+$("#copyFinalReviewText").click(function(){
+	
+})
+</script>
