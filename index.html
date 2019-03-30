@@ -1,9 +1,19 @@
+<head>
+<title>Steam Template Review Generator - By ZeroByter</title>
+<!-- CDNs for the win... !-->
 <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
 <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script>
+</head>
 
 <style>
+	body{
+		background-image: linear-gradient(to top, #1B2838, #163656);
+		color: white;
+	}
+
     .container{
         margin-top: 40px;
     }
@@ -32,10 +42,22 @@
 		position: fixed;
 		top: 0px;
 		right: 0px;
+		z-index: 1
+	}
+	
+	#backgroundSteamGameImage, #backgroundImageBlocker{
+		position: fixed;
+		width: 100%;
+		height: 100%;
+		top: 0px;
+		left: 0px;
 	}
 </style>
 
 <a href="https://github.com/ZeroByter/SteamTemplateReviewGenerator" target="_blank"><img width="149" height="149" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_red_aa0000.png?resize=149%2C149" class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a>
+
+<img id="backgroundSteamGameImage" onerror="setRandomSteamGameBackground()"></img>
+<div id="backgroundImageBlocker"></div>
 
 <div id="generatorContainer" class="container">
     <div class="row">
@@ -47,7 +69,7 @@
     <br><br>
     <div class="row">
         <div class="col-lg-4 offset-lg-4" style="text-align: center;">
-            <button id="copyFinalReviewText" class="btn btn-primary">Copy Review</button>
+            <button id="copyFinalReviewText" class="btn btn-primary" data-trigger="manual" title="Copied reviewed!">Copy Review</button>
         </div>
     </div>
     <br><br><br><br><br><br>
@@ -68,44 +90,59 @@
             <textarea id="templateText"></textarea>
         </div>
     </div>
+	<br>
+	<div class="row">
+        <div class="col-lg-8 offset-lg-2" style="text-align: center;">
+            Have a template that is not recognized by our regex? Create a pull-request for it <a href="https://github.com/ZeroByter/SteamTemplateReviewGenerator/blob/master/index.html#L119" target="_blank">here!</a>
+        </div>
+    </div>
+	<br><br><br><br><br><br>
 </div>
 
 <script>
 var reviewData = {}
 
 function generateForm(){
-    $("#reviewGeneratorContainer").html("")
-	
+	$("#reviewGeneratorContainer").html("")
 	reviewData = {}
 	
+	//Get the template text
 	var template = $("#templateText").val()
 
-    var categories = /---{.+}---(?:(?:\r\n|[\r\n]).+$)*/gm
+	//Setup regex to get each category of options
+	//This regex is the `categoryNameRegex` regex plus a regex for making sure there are options afterwards
+    var categories = /[-|=]+[[|{| ](.+)[:|]?[\]|}| ][-|=]+(?:(?:\r\n|[\r\n]).+$)*/gm
+	//Array of all matched categories
     var categoriesArray = template.match(categories)
 
-    var categoryNameRegex = /---{(.+)}---/g
-    var options = /(☐|☑) (.+)/g
+	//Regex for matching the name of a category
+    var categoryNameRegex = /[-|=]+[[|{| ](.+)[:|]?[\]|}| ][-|=]+/g
+	//Regex for matching a single option and it's text
+    var optionsRegex = /(☐|☑) (.+)/g
 
-    var i = 1
+    var categoryIndex = 1
     categoriesArray.forEach(function(e){
-        var categoryName = Array.from(e.matchAll(categoryNameRegex))[0][1];
+		var categoryName = Array.from(e.matchAll(categoryNameRegex))[0][1];
 
+		//Append the div that will contain the category options
         $("#reviewGeneratorContainer").append("<div class=\"col-lg-4\"></div>");
-        var test = $("#reviewGeneratorContainer").children().last()
-        test.append("<h3>" + categoryName + "</h3>")
+        var optionsCategory = $("#reviewGeneratorContainer").children().last()
+        optionsCategory.append("<h3>" + categoryName + "</h3>")
 		
 		reviewData[categoryName] = {options: {}}
 
-        var optionsMatches = Array.from(e.matchAll(options))
-
+        var optionsMatches = Array.from(e.matchAll(optionsRegex))
         optionsMatches.forEach(function(e1){
-            test.append("<label><input type='checkbox' class='radio' name='test[" + i + "]' data-name='" + e1[2] + "' /> " + e1[2] + "</label>")
-			reviewData[categoryName].options[e1[2]] = false
+			var optionText = e1[2]
+		
+			//Append the option radio button along with it's text.
+            optionsCategory.append("<label><input type='checkbox' class='radio' name='category[" + categoryIndex + "]' data-name='" + optionText + "' /> " + optionText + "</label>")
+			reviewData[categoryName].options[optionText] = false
         })
-        i++
+        categoryIndex++
     })
 
-    setupCategoriziedCheckboxes()
+	setupCategoriziedCheckboxes()
 }
 
 function setupCategoriziedCheckboxes(){
@@ -125,23 +162,67 @@ function setupCategoriziedCheckboxes(){
     });
 }
 
+//Function for checking only one option in a category from the `reviewData`
 function setCheckedReviewData(categoryName, optionName){
 	Object.keys(reviewData[categoryName].options).forEach(function(e){
 		reviewData[categoryName].options[e] = e == optionName
 	})
 }
 
-//TODO: fix this url
-$.get("https://www.zerobyter.github.io/SteamTemplateReviewGenerator/defaultTemplate.txt", function(html){
+//Function to convert the `reviewData` to text to be 'clipboarded' for the user
+function reviewDataToText(){
+	var reviewString = ""
+
+	var firstCategory = true
+	Object.keys(reviewData).forEach(function(categoryName){
+		if(!firstCategory) reviewString += "\n";
+		//TODO: Maybe add option to customize category name style???
+		//This is done here
+		reviewString += "--- " + categoryName + " ---\n";
+		firstCategory = false
+		
+		Object.keys(reviewData[categoryName].options).forEach(function(optionName){
+			if(reviewData[categoryName].options[optionName]){
+				reviewString += "☑ " + optionName + "\n"
+			}else{
+				//TODO: Add 'minifed' review option that will only output selected options instead of also all the unselected ones...
+				reviewString += "☐ " + optionName + "\n"
+			}
+		})
+	})
+	
+	return reviewString
+}
+
+//Function to get a random steam game AppId by rounding it to 100
+function getRandomSteamGameAppId(){
+	var random = Math.floor(Math.random() * 1100000)
+	random = Math.round(random / 100) * 100
+	
+	return random
+}
+
+//Function is called also here in script and also on the image's onerror to ensure we will always have an random background image to display.
+//As they always say "it's hacky, but it works"...
+function setRandomSteamGameBackground(){
+	$("#backgroundSteamGameImage").attr("src", "https://steamcdn-a.akamaihd.net/steam/apps/" + getRandomSteamGameAppId() + "/page_bg_generated_v6b.jpg")
+}
+setRandomSteamGameBackground()
+
+//Get the default review template
+//It's kinda long, so I wanted to keep things organized and import it from the GitHub
+$.get("https://raw.githubusercontent.com/ZeroByter/SteamTemplateReviewGenerator/master/defaultTemplate.txt", function(html){
 	$("#templateText").val(html)
 	
 	generateForm()
 })
 
-$("#templateText").bind("keyup", function(){
+//When the user changes the template, regenerate the form
+$("#templateText").bind("change", function(){
 	generateForm()
 })
 
+//Simple functions to switch between the generator and the template
 $("#switchToChangeTemplate").click(function(){
     $("#generatorContainer").css("display", "none")
     $("#changeTemplateContainer").css("display", "block")
@@ -152,7 +233,15 @@ $("#switchToGenerator").click(function(){
     $("#changeTemplateContainer").css("display", "none")
 })
 
-$("#copyFinalReviewText").click(function(){
+//Setup `ClipboardJS` to copy the review string when button is clicked
+new ClipboardJS('#copyFinalReviewText', {
+    text: function(trigger) {
+		$("#copyFinalReviewText").tooltip("show")
+		setTimeout(function(){
+			$("#copyFinalReviewText").tooltip("hide")
+		}, 800)
 	
+        return reviewDataToText()
+    }
 })
 </script>
